@@ -1,4 +1,6 @@
 import pandas as pd
+import country_converter as coco
+
 df = pd.read_csv("data/gdp_data.csv")
 
 #Inspect data
@@ -22,15 +24,55 @@ df["Year"] = pd.to_numeric(df["Year"])
 print(f"\nDuplicates found: {df.duplicated().sum()}")
 df = df.drop_duplicates()
 
-df_countries = df[df["country_code"].notnull() & (df["country_code"] != "")]
+# 4. Filter out rows with invalid or missing country codes
+df = df[df["country_code"].notnull() & (df["country_code"].astype(str).str.strip() != "")]
 
-#Find Top 10 Countries by GDP in the latest year
-latest_year = df["Year"].max()
-latest_df = df_countries[df_countries["Year"] == latest_year]
+# Remove ", the" from the end of country
+def clean_country_names(name):
+    if pd.isna(name):
+        return name
+    name = name.strip()
+    if name.endswith(", The"):
+        base_name = name[:-5].strip()
+        return f"The {base_name}"
+    return name
+df['country'] = df['country'].apply(clean_country_names)
 
-top10 = latest_df.nlargest(10, "GDP_Billions")
-print(f"\n--- Top 10 Economies in {int(latest_year)} ---")
-print(top10[["country", "country_code", "GDP_Billions"]])
+cc = coco.CountryConverter()
+df["Region"] = cc.convert(names=df["country"].tolist(), to="continent", not_found="Global / Other")
+
+# Function to classify income based on gdp value
+def get_income_category(gdp):
+    if pd.isna(gdp):
+        return "Unknown"
+    elif gdp > 500:
+        return "High Income"
+    elif gdp >= 50:
+        return "Middle Income"
+    else:
+        return "Low Income"
+#latest_years = df.groupby("country")["Year"].transform(max)
+#latest_df = df[df["Year"] == latest_years]
+
+df["Income_Group"] = df["GDP_Billions"].apply(get_income_category)
+
+
+# Calculate YoY GDP growth (%) per country
+df = df.sort_values(["country", "Year"])
+df["GDP_Growth"] = df.groupby("country")["GDP_Billions"].pct_change() * 100
+
+# -----------------------------------------------
+
+#df_countries = df[df["country_code"].notnull() & (df["country_code"] != "")]
+
+latest_years = df.groupby("country")["Year"].transform(max)
+latest_df = df[df["Year"] == latest_years]
+
+
+# Apply the income category function to create the column
+#df["Income_Group"] = df["GDP_Billions"].apply(get_income_category)
+#df["Region"] = df.apply(lambda row: get_region_from_code(row["country_code"], row["country"]), axis=1)
+
 
 #Save cleaned dataset
 df.to_csv("data/gdp_cleaned.csv", index=False)
