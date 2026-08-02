@@ -51,27 +51,16 @@ def get_income_category(gdp):
         return "Middle Income"
     else:
         return "Low Income"
-#latest_years = df.groupby("country")["Year"].transform(max)
-#latest_df = df[df["Year"] == latest_years]
 
 df["Income_Group"] = df["GDP_Billions"].apply(get_income_category)
-
 
 # Calculate YoY GDP growth (%) per country
 df = df.sort_values(["country", "Year"])
 df["GDP_Growth"] = df.groupby("country")["GDP_Billions"].pct_change() * 100
 
-# -----------------------------------------------
-
-#df_countries = df[df["country_code"].notnull() & (df["country_code"] != "")]
 
 latest_years = df.groupby("country")["Year"].transform(max)
 latest_df = df[df["Year"] == latest_years]
-
-
-# Apply the income category function to create the column
-#df["Income_Group"] = df["GDP_Billions"].apply(get_income_category)
-#df["Region"] = df.apply(lambda row: get_region_from_code(row["country_code"], row["country"]), axis=1)
 
 
 #Save cleaned dataset
